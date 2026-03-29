@@ -24,6 +24,9 @@ class Matrix:
             matrix.append("| " + str_row + " |")
         return "\n".join(matrix)
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.data!r})"
+
     def __getitem__(self, el: tuple[int, int]) -> float:
         row, col = el
         self._check_index(row, col)
@@ -66,19 +69,6 @@ class Matrix:
 
         return Matrix(new_data)
 
-    def __eq__(self, obj: object) -> bool:
-        if not isinstance(obj, Matrix):
-            return False
-
-        if self.shape != obj.shape:
-            return False
-
-        return all(
-            a == b
-            for row_a, row_b in zip(self.data, obj.data, strict=False)
-            for a, b in zip(row_a, row_b, strict=False)
-        )
-
     def __mul__(self, obj: Matrix | int | float) -> Matrix:
         new_data: list[list[float]]
         if isinstance(obj, (int, float)):
@@ -103,10 +93,33 @@ class Matrix:
     def __rmul__(self, obj: int | float) -> Matrix:
         return self * obj
 
+    def __truediv__(self, obj: int | float) -> Matrix:
+        if obj == 0:
+            raise ValueError("Division by zero")
+        new_data = [[a / obj for a in row] for row in self.data]
+        return Matrix(new_data)
+
+    def __neg__(self) -> Matrix:
+        new_data = [[-a for a in row] for row in self.data]
+        return Matrix(new_data)
+
     def __pow__(self, power: int | float) -> Matrix:
         new_data = [[a**power for a in row] for row in self.data]
 
         return Matrix(new_data)
+
+    def __eq__(self, obj: object) -> bool:
+        if not isinstance(obj, Matrix):
+            return False
+
+        if self.shape != obj.shape:
+            return False
+
+        return all(
+            a == b
+            for row_a, row_b in zip(self.data, obj.data, strict=False)
+            for a, b in zip(row_a, row_b, strict=False)
+        )
 
     @property
     def data(self) -> list[list[float]]:
@@ -131,16 +144,61 @@ class Matrix:
         cols = len(self.data[0])
         return rows, cols
 
+    def is_square(self) -> bool:
+        return self.shape[0] == self.shape[1]
+
+    def is_symmetric(self) -> bool:
+        if not self.is_square():
+            return False
+        return self.data == self.transpose().data
+
     def transpose(self) -> Matrix:
         new_data = zip(*self.data, strict=False)
         t_rows = [list(row) for row in new_data]
         return Matrix(t_rows)
 
-    def sum(self) -> float:
+    def trace(self) -> float:
+        if not self.is_square():
+            raise ValueError("Not square matrix")
+        return sum(self[i, i] for i in range(self.shape[0]))
+
+    def submatrix(self, row: int, col: int) -> Matrix:
+        new_data = [
+            [self.data[i][j] for j in range(self.shape[1]) if j != col]
+            for i in range(self.shape[0])
+            if i != row
+        ]
+
+        return Matrix(new_data)
+
+    def det(self) -> float:
+        if not self.is_square():
+            raise ValueError("Not square matrix")
+
+        if self.shape == (1, 1):
+            return self[0, 0]
+
+        det: float = sum(
+            (-1) ** j * self.data[0][j] * self.submatrix(0, j).det()
+            for j in range(self.shape[1])
+        )
+
+        return det
+
+    def copy(self) -> Matrix:
+        return Matrix([row[:] for row in self.data])
+
+    def total(self) -> float:
         return sum([sum(row) for row in self.data])
 
     def mean(self) -> float:
-        return self.sum() / (self.shape[0] * self.shape[1])
+        return self.total() / (self.shape[0] * self.shape[1])
+
+    def row(self, index: int) -> list[float]:
+        return self.data[index]
+
+    def col(self, index: int) -> list[float]:
+        return [row[index] for row in self.data]
 
     def _check_index(self, row: int, col: int) -> None:
         if row < 0 or col < 0:
